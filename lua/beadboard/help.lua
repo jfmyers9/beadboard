@@ -18,7 +18,7 @@ local content = {
   'P        Priority down (lower)',                -- 10
   'c        Close bead',                           -- 11
   'o        Reopen bead',                          -- 12
-  'K        Claim bead',                           -- 13
+  'gK       Claim bead',                           -- 13
   'C        Create new bead (wizard)',             -- 14
   'dd       Delete bead',                          -- 15
   'gD       Defer bead (optional until date)',     -- 16
@@ -49,10 +49,10 @@ local content = {
   'p / P    Priority up / down',                   -- 41
   'c        Close bead',                           -- 42
   'o        Reopen bead',                          -- 43
-  'K        Claim bead',                           -- 44
+  'gK       Claim bead',                           -- 44
   'a        Set assignee',                         -- 45
-  'l        Add label (picker + custom)',          -- 46
-  'L        Remove label',                         -- 47
+  'gl       Add label (picker + custom)',          -- 46
+  'gL       Remove label',                         -- 47
   '<C-c>    Add comment',                          -- 48
   'gD       Defer bead (optional until date)',     -- 49
   'gU       Undefer bead (reopen)',                -- 50
@@ -68,7 +68,7 @@ local content = {
   'gd       Show dependencies',                    -- 60
   'gp       Go to parent',                         -- 61
   'gc       Show children',                        -- 62
-  'gg       Dependency graph',                     -- 63
+  'gG       Dependency graph',                     -- 63
   'gx       Mark as duplicate',                    -- 64
   'gX       Supersede with issue',                 -- 65
   'gW       Promote wisp to bead',                 -- 66

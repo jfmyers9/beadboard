@@ -211,7 +211,7 @@ local function setup_keymaps(buf)
   end, opts)
 
   -- Claim
-  vim.keymap.set('n', 'K', function()
+  vim.keymap.set('n', 'gK', function()
     local bead = get_bead_under_cursor(buf)
     if not bead then return end
     mutate_and_refresh(buf, { 'update', bead.id, '--claim' })

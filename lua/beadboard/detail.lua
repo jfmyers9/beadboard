@@ -300,7 +300,7 @@ local function setup_keymaps(buf)
   end, opts)
 
   -- Claim
-  vim.keymap.set('n', 'K', function()
+  vim.keymap.set('n', 'gK', function()
     local s = state()
     if not s then return end
     mutate_and_refresh(buf, s.bead_id, { 'update', s.bead_id, '--claim' })
@@ -317,7 +317,7 @@ local function setup_keymaps(buf)
   end, opts)
 
   -- Add label
-  vim.keymap.set('n', 'l', function()
+  vim.keymap.set('n', 'gl', function()
     local s = state()
     if not s then return end
     cli.run({ 'label', 'list-all' }, function(err, data)
@@ -341,7 +341,7 @@ local function setup_keymaps(buf)
   end, opts)
 
   -- Remove label
-  vim.keymap.set('n', 'L', function()
+  vim.keymap.set('n', 'gL', function()
     local s = state()
     if not s then return end
     vim.ui.input({ prompt = 'Remove label: ' }, function(val)
@@ -563,7 +563,7 @@ local function setup_keymaps(buf)
   end, opts)
 
   -- Dependency graph
-  vim.keymap.set('n', 'gg', function()
+  vim.keymap.set('n', 'gG', function()
     local s = state()
     if not s then return end
     require('beadboard.graph').open(s.bead_id)

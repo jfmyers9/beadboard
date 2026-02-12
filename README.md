@@ -112,7 +112,7 @@ require('beadboard').setup({
 | `P` | Priority down (higher number) |
 | `c` | Close issue |
 | `o` | Reopen issue |
-| `K` | Claim (assign to self) |
+| `gK` | Claim (assign to self) |
 | `C` | Open create wizard |
 | `dd` | Delete (with confirmation) |
 | `gD` | Defer (optional "until" date) |
@@ -147,10 +147,10 @@ All bulk operations prompt for confirmation.
 | `p` / `P` | Priority up / down |
 | `c` | Close issue |
 | `o` | Reopen issue |
-| `K` | Claim |
+| `gK` | Claim |
 | `a` | Set assignee |
-| `l` | Add label |
-| `L` | Remove label |
+| `gl` | Add label |
+| `gL` | Remove label |
 | `<C-c>` | Add comment |
 | `gD` | Defer |
 | `gU` | Undefer |
@@ -187,7 +187,7 @@ or empty to clear.
 | `gp` | Go to parent |
 | `gc` | Show children |
 | `gd` | Show dependency list |
-| `gg` | Open dependency graph |
+| `gG` | Open dependency graph |
 | `gx` | Mark as duplicate |
 | `gX` | Supersede with another issue |
 | `gW` | Promote wisp to permanent issue |
