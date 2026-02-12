@@ -37,7 +37,7 @@ local priority_names = {
   [4] = 'P4 (backlog)',
 }
 
-local function render(buf, status_data, by_status, by_priority, by_type)
+local function render(buf, status_data, by_status, by_priority, by_type, by_assignee, by_label)
   local lines = {}
   local highlights = {}
 
@@ -113,6 +113,32 @@ local function render(buf, status_data, by_status, by_priority, by_type)
     end
   end
 
+  -- By Assignee
+  lines[#lines + 1] = ''
+  lines[#lines + 1] = 'By Assignee'
+  highlights[#highlights + 1] = { #lines - 1, 'BeadboardHeader', 0, -1 }
+
+  if by_assignee and type(by_assignee) == 'table' then
+    for _, entry in ipairs(by_assignee) do
+      local name = entry.assignee or entry.name or '(unassigned)'
+      local count = entry.count or 0
+      lines[#lines + 1] = '  ' .. pad_right(name, 20) .. pad_left(tostring(count), 3)
+    end
+  end
+
+  -- By Label
+  lines[#lines + 1] = ''
+  lines[#lines + 1] = 'By Label'
+  highlights[#highlights + 1] = { #lines - 1, 'BeadboardHeader', 0, -1 }
+
+  if by_label and type(by_label) == 'table' then
+    for _, entry in ipairs(by_label) do
+      local name = entry.label or entry.name or '(none)'
+      local count = entry.count or 0
+      lines[#lines + 1] = '  ' .. pad_right(name, 20) .. pad_left(tostring(count), 3)
+    end
+  end
+
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
@@ -125,14 +151,14 @@ local function render(buf, status_data, by_status, by_priority, by_type)
 end
 
 local function refresh(buf)
-  local status_data, by_status, by_priority, by_type
-  local pending = 4
+  local status_data, by_status, by_priority, by_type, by_assignee, by_label
+  local pending = 6
 
   local function try_render()
     pending = pending - 1
     if pending > 0 then return end
     if not vim.api.nvim_buf_is_valid(buf) then return end
-    render(buf, status_data, by_status, by_priority, by_type)
+    render(buf, status_data, by_status, by_priority, by_type, by_assignee, by_label)
   end
 
   cli.run({ 'status' }, function(err, data)
@@ -152,6 +178,16 @@ local function refresh(buf)
 
   cli.run({ 'count', '--by-type' }, function(err, data)
     if not err and data then by_type = data end
+    try_render()
+  end)
+
+  cli.run({ 'count', '--by-assignee' }, function(err, data)
+    if not err and data then by_assignee = data end
+    try_render()
+  end)
+
+  cli.run({ 'count', '--by-label' }, function(err, data)
+    if not err and data then by_label = data end
     try_render()
   end)
 end

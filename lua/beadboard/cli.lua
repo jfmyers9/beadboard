@@ -45,6 +45,26 @@ function M.run(args, callback)
   end)
 end
 
+-- Async run without --json: calls callback(err, text) with raw stdout.
+function M.run_raw(args, callback)
+  local cfg = get_config()
+  local cmd = { cfg.bd_cmd }
+  for _, a in ipairs(args) do
+    cmd[#cmd + 1] = a
+  end
+  vim.system(cmd, { text = true }, function(result)
+    vim.schedule(function()
+      if result.code ~= 0 then
+        local msg = (result.stderr or ''):gsub('%s+$', '')
+        if msg == '' then msg = 'bd exited with code ' .. result.code end
+        callback(msg, nil)
+        return
+      end
+      callback(nil, result.stdout or '')
+    end)
+  end)
+end
+
 -- Synchronous run: returns (data, err).
 -- On success err is nil. On failure data is nil.
 function M.run_sync(args)

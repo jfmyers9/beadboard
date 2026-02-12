@@ -92,6 +92,35 @@ local function get_bead_under_cursor(buf)
   return bd.beads[row - 1] -- row 2 = bead index 1
 end
 
+local function get_beads_in_range(buf, start_row, end_row)
+  local bd = buf_beads[buf]
+  if not bd then return {} end
+  local beads = {}
+  for row = start_row, end_row do
+    local idx = row - 1 -- header is row 1, bead index starts at 1
+    if idx >= 1 and idx <= #bd.beads then
+      beads[#beads + 1] = bd.beads[idx]
+    end
+  end
+  return beads
+end
+
+local function bulk_mutate(buf, beads, build_args_fn)
+  local pending = #beads
+  if pending == 0 then return end
+  for _, bead in ipairs(beads) do
+    cli.run(build_args_fn(bead), function(err)
+      if err then
+        vim.notify('beadboard: ' .. bead.id .. ': ' .. err, vim.log.levels.WARN)
+      end
+      pending = pending - 1
+      if pending == 0 then
+        refresh(buf)
+      end
+    end)
+  end
+end
+
 local function mutate_and_refresh(buf, args)
   cli.run(args, function(err)
     if err then
@@ -190,9 +219,8 @@ local function setup_keymaps(buf)
 
   -- Create
   vim.keymap.set('n', 'C', function()
-    vim.ui.input({ prompt = 'New bead title: ' }, function(title)
-      if not title or title == '' then return end
-      mutate_and_refresh(buf, { 'create', title })
+    require('beadboard.create').open(function()
+      refresh(buf)
     end)
   end, opts)
 
@@ -209,7 +237,13 @@ local function setup_keymaps(buf)
   -- Filter
   vim.keymap.set('n', 'f', function()
     vim.ui.select(
-      { 'status', 'type', 'priority', 'assignee', 'label' },
+      {
+        'status', 'type', 'priority', 'assignee',
+        'label', 'label-any',
+        'created-after', 'created-before',
+        'updated-after', 'updated-before',
+        'show-all', 'empty-description',
+      },
       { prompt = 'Filter by:' },
       function(dim)
         if not dim then return end
@@ -218,13 +252,21 @@ local function setup_keymaps(buf)
             if v then filter.get(buf).status = v; refresh(buf) end
           end)
         elseif dim == 'type' then
-          vim.ui.select(
-            { 'task', 'bug', 'feature', 'chore', 'epic' },
-            { prompt = 'Type:' },
-            function(v)
-              if v then filter.get(buf).type = v; refresh(buf) end
+          cli.run({ 'types' }, function(err, data)
+            local types = { 'task', 'bug', 'feature', 'chore', 'epic' }
+            if not err and data then
+              local fetched = {}
+              for _, list in ipairs({ data.core_types or {}, data.custom_types or {} }) do
+                for _, t in ipairs(list) do
+                  fetched[#fetched + 1] = t.name
+                end
+              end
+              if #fetched > 0 then types = fetched end
             end
-          )
+            vim.ui.select(types, { prompt = 'Type:' }, function(v)
+              if v then filter.get(buf).type = v; refresh(buf) end
+            end)
+          end)
         elseif dim == 'priority' then
           vim.ui.select(
             { '0', '1', '2', '3', '4' },
@@ -241,6 +283,32 @@ local function setup_keymaps(buf)
           vim.ui.input({ prompt = 'Label: ' }, function(v)
             if v and v ~= '' then filter.get(buf).label = v; refresh(buf) end
           end)
+        elseif dim == 'label-any' then
+          vim.ui.input({ prompt = 'Labels (comma-separated, OR logic): ' }, function(v)
+            if v and v ~= '' then filter.get(buf).label_any = v; refresh(buf) end
+          end)
+        elseif dim == 'created-after' then
+          vim.ui.input({ prompt = 'Created after (YYYY-MM-DD): ' }, function(v)
+            if v and v ~= '' then filter.get(buf).created_after = v; refresh(buf) end
+          end)
+        elseif dim == 'created-before' then
+          vim.ui.input({ prompt = 'Created before (YYYY-MM-DD): ' }, function(v)
+            if v and v ~= '' then filter.get(buf).created_before = v; refresh(buf) end
+          end)
+        elseif dim == 'updated-after' then
+          vim.ui.input({ prompt = 'Updated after (YYYY-MM-DD): ' }, function(v)
+            if v and v ~= '' then filter.get(buf).updated_after = v; refresh(buf) end
+          end)
+        elseif dim == 'updated-before' then
+          vim.ui.input({ prompt = 'Updated before (YYYY-MM-DD): ' }, function(v)
+            if v and v ~= '' then filter.get(buf).updated_before = v; refresh(buf) end
+          end)
+        elseif dim == 'show-all' then
+          filter.get(buf).show_all = not filter.get(buf).show_all
+          refresh(buf)
+        elseif dim == 'empty-description' then
+          filter.get(buf).empty_description = not filter.get(buf).empty_description
+          refresh(buf)
         end
       end
     )
@@ -286,6 +354,85 @@ local function setup_keymaps(buf)
         f.query = q
         refresh(buf)
       end
+    end)
+  end, opts)
+
+  -- Defer
+  vim.keymap.set('n', 'gD', function()
+    local bead = get_bead_under_cursor(buf)
+    if not bead then return end
+    vim.ui.input({ prompt = 'Defer until (optional, empty to defer now): ' }, function(val)
+      local args = { 'defer', bead.id }
+      if val and val ~= '' then
+        table.insert(args, '--until')
+        table.insert(args, val)
+      end
+      cli.run(args, function(err)
+        if err then
+          vim.notify('beadboard: ' .. err, vim.log.levels.ERROR)
+          return
+        end
+        refresh(buf)
+      end)
+    end)
+  end, opts)
+
+  -- Undefer
+  vim.keymap.set('n', 'gU', function()
+    local bead = get_bead_under_cursor(buf)
+    if not bead then return end
+    mutate_and_refresh(buf, { 'update', bead.id, '--status', 'open' })
+  end, opts)
+
+  -- Visual-mode bulk close
+  vim.keymap.set('x', 'c', function()
+    local start_row = vim.fn.line('v')
+    local end_row = vim.fn.line('.')
+    if start_row > end_row then start_row, end_row = end_row, start_row end
+    local beads = get_beads_in_range(buf, start_row, end_row)
+    if #beads == 0 then return end
+    vim.ui.select({ 'Yes', 'No' }, { prompt = 'Close ' .. #beads .. ' beads?' }, function(choice)
+      if choice ~= 'Yes' then return end
+      bulk_mutate(buf, beads, function(bead) return { 'close', bead.id } end)
+    end)
+  end, opts)
+
+  -- Visual-mode bulk delete
+  vim.keymap.set('x', 'dd', function()
+    local start_row = vim.fn.line('v')
+    local end_row = vim.fn.line('.')
+    if start_row > end_row then start_row, end_row = end_row, start_row end
+    local beads = get_beads_in_range(buf, start_row, end_row)
+    if #beads == 0 then return end
+    vim.ui.select({ 'Yes', 'No' }, { prompt = 'Delete ' .. #beads .. ' beads?' }, function(choice)
+      if choice ~= 'Yes' then return end
+      bulk_mutate(buf, beads, function(bead) return { 'delete', bead.id } end)
+    end)
+  end, opts)
+
+  -- Visual-mode bulk defer
+  vim.keymap.set('x', 'gD', function()
+    local start_row = vim.fn.line('v')
+    local end_row = vim.fn.line('.')
+    if start_row > end_row then start_row, end_row = end_row, start_row end
+    local beads = get_beads_in_range(buf, start_row, end_row)
+    if #beads == 0 then return end
+    vim.ui.select({ 'Yes', 'No' }, { prompt = 'Defer ' .. #beads .. ' beads?' }, function(choice)
+      if choice ~= 'Yes' then return end
+      bulk_mutate(buf, beads, function(bead) return { 'defer', bead.id } end)
+    end)
+  end, opts)
+
+  -- Visual-mode bulk status update
+  vim.keymap.set('x', 's', function()
+    local start_row = vim.fn.line('v')
+    local end_row = vim.fn.line('.')
+    if start_row > end_row then start_row, end_row = end_row, start_row end
+    local beads = get_beads_in_range(buf, start_row, end_row)
+    if #beads == 0 then return end
+    vim.ui.select(status_cycle, { prompt = 'Status for ' .. #beads .. ' beads:' }, function(choice)
+      if not choice then return end
+      bulk_mutate(buf, beads, function(bead) return { 'update', bead.id, '--status', choice } end)
     end)
   end, opts)
 
@@ -337,6 +484,9 @@ function M.open_with_mode(mode, value)
     f.query = value
   elseif mode == 'children' then
     f.parent = value
+  elseif mode == 'stale' then
+    f.mode = 'stale'
+    f.stale_days = value
   end
   refresh(buf)
 end

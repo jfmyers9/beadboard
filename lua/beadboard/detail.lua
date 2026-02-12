@@ -320,9 +320,23 @@ local function setup_keymaps(buf)
   vim.keymap.set('n', 'l', function()
     local s = state()
     if not s then return end
-    vim.ui.input({ prompt = 'Add label: ' }, function(val)
-      if not val or val == '' then return end
-      mutate_and_refresh(buf, s.bead_id, { 'update', s.bead_id, '--add-label', val })
+    cli.run({ 'label', 'list-all' }, function(err, data)
+      local labels = {}
+      if not err and data and type(data) == 'table' then
+        labels = data
+      end
+      labels[#labels + 1] = '(custom...)'
+      vim.ui.select(labels, { prompt = 'Add label:' }, function(choice)
+        if not choice then return end
+        if choice == '(custom...)' then
+          vim.ui.input({ prompt = 'Add label: ' }, function(val)
+            if not val or val == '' then return end
+            mutate_and_refresh(buf, s.bead_id, { 'update', s.bead_id, '--add-label', val })
+          end)
+        else
+          mutate_and_refresh(buf, s.bead_id, { 'update', s.bead_id, '--add-label', choice })
+        end
+      end)
     end)
   end, opts)
 
@@ -384,6 +398,95 @@ local function setup_keymaps(buf)
     end)
   end, opts)
 
+  -- Dep add: current issue depends on target
+  vim.keymap.set('n', 'da', function()
+    local s = state()
+    if not s then return end
+    local picker = require('beadboard.picker')
+    picker.pick_issue('Depends on', function(target)
+      if not target then return end
+      mutate_and_refresh(buf, s.bead_id, { 'dep', 'add', s.bead_id, target })
+    end)
+  end, opts)
+
+  -- Dep blocks: current issue blocks target
+  vim.keymap.set('n', 'db', function()
+    local s = state()
+    if not s then return end
+    local picker = require('beadboard.picker')
+    picker.pick_issue('Blocks', function(target)
+      if not target then return end
+      mutate_and_refresh(buf, s.bead_id, { 'dep', s.bead_id, '--blocks', target })
+    end)
+  end, opts)
+
+  -- Dep remove: select from existing deps
+  vim.keymap.set('n', 'dr', function()
+    local s = state()
+    if not s or not s.deps or #s.deps == 0 then
+      vim.notify('beadboard: no dependencies to remove')
+      return
+    end
+    local items = {}
+    local id_map = {}
+    for _, d in ipairs(s.deps) do
+      if d.dependency_type ~= 'relates-to' then
+        local dep_id = d.id or ''
+        local label = dep_id .. ' [' .. (d.dependency_type or '?') .. '] ' .. (d.title or '')
+        items[#items + 1] = label
+        id_map[label] = dep_id
+      end
+    end
+    if #items == 0 then
+      vim.notify('beadboard: no dependencies to remove')
+      return
+    end
+    vim.ui.select(items, { prompt = 'Remove dependency:' }, function(choice)
+      if not choice then return end
+      local target = id_map[choice]
+      mutate_and_refresh(buf, s.bead_id, { 'dep', 'remove', s.bead_id, target })
+    end)
+  end, opts)
+
+  -- Dep relate: bidirectional relates_to link
+  vim.keymap.set('n', 'dR', function()
+    local s = state()
+    if not s then return end
+    local picker = require('beadboard.picker')
+    picker.pick_issue('Relate to', function(target)
+      if not target then return end
+      mutate_and_refresh(buf, s.bead_id, { 'dep', 'relate', s.bead_id, target })
+    end)
+  end, opts)
+
+  -- Dep unrelate: remove relates_to link from existing deps
+  vim.keymap.set('n', 'dU', function()
+    local s = state()
+    if not s or not s.deps or #s.deps == 0 then
+      vim.notify('beadboard: no relations to remove')
+      return
+    end
+    local items = {}
+    local id_map = {}
+    for _, d in ipairs(s.deps) do
+      if d.dependency_type == 'relates-to' then
+        local dep_id = d.id or ''
+        local label = dep_id .. ' [relates-to] ' .. (d.title or '')
+        items[#items + 1] = label
+        id_map[label] = dep_id
+      end
+    end
+    if #items == 0 then
+      vim.notify('beadboard: no relates-to links to remove')
+      return
+    end
+    vim.ui.select(items, { prompt = 'Unrelate:' }, function(choice)
+      if not choice then return end
+      local target = id_map[choice]
+      mutate_and_refresh(buf, s.bead_id, { 'dep', 'unrelate', s.bead_id, target })
+    end)
+  end, opts)
+
   -- Go to parent
   vim.keymap.set('n', 'gp', function()
     local s = state()
@@ -399,6 +502,125 @@ local function setup_keymaps(buf)
     local s = state()
     if not s or not s.bead then return end
     require('beadboard.list').open_with_mode('children', s.bead_id)
+  end, opts)
+
+  -- Defer
+  vim.keymap.set('n', 'gD', function()
+    local s = state()
+    if not s then return end
+    vim.ui.input({ prompt = 'Defer until (optional, empty to defer now): ' }, function(val)
+      local args = { 'defer', s.bead_id }
+      if val and val ~= '' then
+        table.insert(args, '--until')
+        table.insert(args, val)
+      end
+      cli.run(args, function(err)
+        if err then
+          vim.notify('beadboard: ' .. err, vim.log.levels.ERROR)
+          return
+        end
+        refresh_detail(buf, s.bead_id)
+      end)
+    end)
+  end, opts)
+
+  -- Undefer
+  vim.keymap.set('n', 'gU', function()
+    local s = state()
+    if not s then return end
+    mutate_and_refresh(buf, s.bead_id, { 'update', s.bead_id, '--status', 'open' })
+  end, opts)
+
+  -- Edit due date
+  vim.keymap.set('n', 'eU', function()
+    local s = state()
+    if not s then return end
+    vim.ui.input({ prompt = 'Due date (+6h, +1d, +2w, tomorrow, YYYY-MM-DD, empty to clear): ' }, function(val)
+      if val == nil then return end
+      mutate_and_refresh(buf, s.bead_id, { 'update', s.bead_id, '--due', val })
+    end)
+  end, opts)
+
+  -- Edit estimate
+  vim.keymap.set('n', 'eE', function()
+    local s = state()
+    if not s then return end
+    vim.ui.input({ prompt = 'Estimate (minutes): ' }, function(val)
+      if not val or val == '' then return end
+      mutate_and_refresh(buf, s.bead_id, { 'update', s.bead_id, '--estimate', val })
+    end)
+  end, opts)
+
+  -- Set parent
+  vim.keymap.set('n', 'gP', function()
+    local s = state()
+    if not s then return end
+    local picker = require('beadboard.picker')
+    picker.pick_issue('Parent', function(target)
+      if not target then return end
+      mutate_and_refresh(buf, s.bead_id, { 'update', s.bead_id, '--parent', target })
+    end)
+  end, opts)
+
+  -- Dependency graph
+  vim.keymap.set('n', 'gg', function()
+    local s = state()
+    if not s then return end
+    require('beadboard.graph').open(s.bead_id)
+  end, opts)
+
+  -- Mark as duplicate of another issue
+  vim.keymap.set('n', 'gx', function()
+    local s = state()
+    if not s then return end
+    local picker = require('beadboard.picker')
+    picker.pick_issue('Duplicate of', function(target)
+      if not target then return end
+      mutate_and_refresh(buf, s.bead_id, { 'duplicate', s.bead_id, '--of', target })
+    end)
+  end, opts)
+
+  -- Supersede with another issue
+  vim.keymap.set('n', 'gX', function()
+    local s = state()
+    if not s then return end
+    local picker = require('beadboard.picker')
+    picker.pick_issue('Supersede with', function(target)
+      if not target then return end
+      mutate_and_refresh(buf, s.bead_id, { 'supersede', s.bead_id, '--with', target })
+    end)
+  end, opts)
+
+  -- Rename issue ID
+  vim.keymap.set('n', 'eI', function()
+    local s = state()
+    if not s then return end
+    vim.ui.input({ prompt = 'New ID: ' }, function(new_id)
+      if not new_id or new_id == '' then return end
+      cli.run({ 'rename', s.bead_id, new_id }, function(err)
+        if err then
+          vim.notify('beadboard: ' .. err, vim.log.levels.ERROR)
+          return
+        end
+        vim.notify('beadboard: renamed to ' .. new_id)
+        s.bead_id = new_id
+        refresh_detail(buf, new_id)
+      end)
+    end)
+  end, opts)
+
+  -- Promote wisp to permanent bead
+  vim.keymap.set('n', 'gW', function()
+    local s = state()
+    if not s then return end
+    vim.ui.input({ prompt = 'Promote reason (optional): ' }, function(reason)
+      local args = { 'promote', s.bead_id }
+      if reason and reason ~= '' then
+        args[#args + 1] = '--reason'
+        args[#args + 1] = reason
+      end
+      mutate_and_refresh(buf, s.bead_id, args)
+    end)
   end, opts)
 
   -- Help
