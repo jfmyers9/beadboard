@@ -33,13 +33,15 @@ local content = {
   'gS       Reverse sort',                         -- 25
   '/        Text search',                          -- 26
   'gq       Query expression',                     -- 27
-  '',                                              -- 28
-  'LIST BUFFER (visual mode)',                     -- 29
+  'gC       Claude skill picker',                  -- 28
+  '',                                              -- 29
+  'LIST BUFFER (visual mode)',                     -- 30
   separator,                                       -- 30
   'V+c      Bulk close selected',                  -- 31
   'V+dd     Bulk delete selected',                 -- 32
   'V+gD     Bulk defer selected',                  -- 33
   'V+s      Bulk status update selected',          -- 34
+  'V+gC     Claude skill picker (multi-bead)',     -- 35
   '',                                              -- 35
   'DETAIL BUFFER',                                 -- 36
   separator,                                       -- 37
@@ -77,6 +79,8 @@ local content = {
   'dr       Remove dependency',                    -- 69
   'dR       Relate to issue',                      -- 70
   'dU       Unrelate from issue',                  -- 71
+  'gC       Claude skill picker',                  -- 72
+  'gT       Jump to active Claude session',        -- 73
   '',                                              -- 72
   'ACTIVITY BUFFER',                               -- 73
   separator,                                       -- 74
@@ -114,14 +118,14 @@ local content = {
 }
 
 -- Line indices (0-based) that are section headers
-local header_lines = { 0, 2, 29, 36, 73, 81, 88, 93 }
+local header_lines = { 0, 2, 30, 38, 77, 85, 92, 97 }
 local header_set = {}
 for _, i in ipairs(header_lines) do
   header_set[i] = true
 end
 
 -- Line indices (0-based) that are separator lines
-local sep_lines = { 3, 30, 37, 74, 82, 89, 94 }
+local sep_lines = { 3, 31, 39, 78, 86, 93, 98 }
 local sep_set = {}
 for _, i in ipairs(sep_lines) do
   sep_set[i] = true

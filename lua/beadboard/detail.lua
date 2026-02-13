@@ -626,8 +626,8 @@ local function setup_keymaps(buf)
   -- Claude skill picker
   vim.keymap.set('n', 'gC', function()
     local s = state()
-    if not s or not s.bead then return end
-    require('beadboard.claude').pick_and_run(s.bead)
+    if not s then return end
+    require('beadboard.claude').pick_and_run(s.bead or s.bead_id)
   end, opts)
 
   -- Jump to active Claude session

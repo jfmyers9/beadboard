@@ -175,6 +175,10 @@ end
 
 function M.pick_and_run(bead, opts)
   opts = opts or {}
+  -- Accept either a bead object or a plain ID string
+  if type(bead) == 'string' then
+    bead = { id = bead, title = '' }
+  end
   local skills = build_skill_list(bead)
 
   vim.ui.select(skills, {
@@ -185,6 +189,24 @@ function M.pick_and_run(bead, opts)
   }, function(choice)
     if not choice then return end
     M.run(choice.name, bead.id, opts)
+  end)
+end
+
+function M.pick_and_run_multi(beads, opts)
+  opts = opts or {}
+  local skills = build_skill_list(beads[1])
+  local ids = {}
+  for _, b in ipairs(beads) do ids[#ids + 1] = type(b) == 'string' and b or b.id end
+  local joined = table.concat(ids, ' ')
+
+  vim.ui.select(skills, {
+    prompt = 'Claude skill (' .. #beads .. ' beads):',
+    format_item = function(s)
+      return '/' .. s.name .. ' \u{2014} ' .. s.desc
+    end,
+  }, function(choice)
+    if not choice then return end
+    M.run(choice.name, joined, opts)
   end)
 end
 
@@ -221,6 +243,10 @@ end
 function M.run(skill, bead_id, opts)
   M.setup_autocmds()
   opts = opts or {}
+  if not bead_id then
+    vim.notify('beadboard: no bead ID for claude skill', vim.log.levels.WARN)
+    return
+  end
   local mode = opts.mode or get_config().claude_default_mode or 'terminal'
   local cmd_name = claude_cmd()
 
@@ -245,8 +271,7 @@ function M.run(skill, bead_id, opts)
       cmd[#cmd + 1] = '--model'
       cmd[#cmd + 1] = model
     end
-    cmd[#cmd + 1] = '/' .. skill
-    cmd[#cmd + 1] = bead_id
+    cmd[#cmd + 1] = '/' .. skill .. ' ' .. bead_id
     return run_terminal(cmd, opts)
   end
 end

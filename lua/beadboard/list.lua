@@ -446,6 +446,16 @@ local function setup_keymaps(buf)
     require('beadboard.claude').pick_and_run(bead)
   end, opts)
 
+  -- Visual-mode Claude skill picker (multi-bead)
+  vim.keymap.set('x', 'gC', function()
+    local start_row = vim.fn.line('v')
+    local end_row = vim.fn.line('.')
+    if start_row > end_row then start_row, end_row = end_row, start_row end
+    local beads = get_beads_in_range(buf, start_row, end_row)
+    if #beads == 0 then return end
+    require('beadboard.claude').pick_and_run_multi(beads)
+  end, opts)
+
   -- Help
   vim.keymap.set('n', '?', function()
     require('beadboard.help').open()
