@@ -7,6 +7,9 @@ M.config = {
   claude_cmd = 'claude',
   claude_default_mode = 'terminal',
   claude_model = nil,
+  claude_permission_mode = nil,
+  claude_extra_args = {},
+  claude_allowed_tools = nil,
 }
 
 function M.setup(opts)

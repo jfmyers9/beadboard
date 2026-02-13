@@ -39,7 +39,7 @@ your editor.
 
 ```lua
 {
-  dir = '~/path/to/beadboard',
+  'jfmyers9/beadboard',
   config = function()
     require('beadboard').setup()
   end,
@@ -50,7 +50,7 @@ your editor.
 
 ```lua
 use {
-  '~/path/to/beadboard',
+  'jfmyers9/beadboard',
   config = function()
     require('beadboard').setup()
   end,
@@ -59,10 +59,15 @@ use {
 
 ### Manual
 
-Add the plugin directory to your runtimepath:
+Clone the repository and add it to your runtimepath:
+
+```bash
+git clone https://github.com/jfmyers9/beadboard ~/.local/share/nvim/site/pack/plugins/start/beadboard
+```
+
+Then in your config:
 
 ```lua
-vim.opt.rtp:append('~/path/to/beadboard')
 require('beadboard').setup()
 ```
 
@@ -85,6 +90,9 @@ require('beadboard').setup({
 | `default_limit` | number | `50` | Maximum issues fetched per list query |
 | `default_sort` | string | `'priority'` | Default sort field for list view |
 | `claude_cmd` | string | `'claude'` | Path to the Claude Code CLI binary |
+| `claude_permission_mode` | string | `nil` | Claude Code `--permission-mode` flag (`"acceptEdits"`, `"bypassPermissions"`, etc.) |
+| `claude_extra_args` | list | `{}` | Extra CLI args passed to Claude Code (escape hatch for future flags) |
+| `claude_allowed_tools` | list | `nil` | Tool patterns passed via `--allowedTools` (e.g. `{"Bash(bd *)", "Edit", "Read"}`) |
 
 ## Commands
 
@@ -306,6 +314,73 @@ Quick-action commands for common workflows:
   launches the `explore` skill
 - `:BdQuickFix [feedback]` — runs the `fix` skill to turn
   feedback into issues (prompts for input if no argument given)
+
+## Reducing Permission Prompts
+
+Claude Code prompts for confirmation on each tool use (file edits,
+shell commands, etc.). For plugin-driven workflows where the
+commands are predictable, this friction is usually unnecessary.
+There are two ways to reduce it: plugin config or project settings.
+
+### Plugin Config
+
+Set `claude_permission_mode` in `setup()` to control how Claude
+Code handles permissions for all plugin-launched sessions.
+
+**Fully autonomous** — no prompts at all:
+
+```lua
+require('beadboard').setup({
+  claude_permission_mode = 'bypassPermissions',
+})
+```
+
+**Auto-accept file edits** — still prompts for shell commands:
+
+```lua
+require('beadboard').setup({
+  claude_permission_mode = 'acceptEdits',
+})
+```
+
+**Granular tool approval** — allow specific tools, prompt for
+the rest:
+
+```lua
+require('beadboard').setup({
+  claude_allowed_tools = {
+    'Bash(bd *)', 'Bash(git *)', 'Edit', 'Write',
+  },
+})
+```
+
+Print mode (`:BdClaude print`) auto-defaults to
+`bypassPermissions` when no explicit mode is configured, since
+print output is non-destructive.
+
+### Project Settings Alternative
+
+Instead of plugin config, you can create a
+`.claude/settings.local.json` in your project root. This file
+is per-user (gitignored) and applies to all Claude Code
+sessions in the project, not just plugin-launched ones.
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(bd *)",
+      "Bash(git *)",
+      "Edit",
+      "Write"
+    ]
+  }
+}
+```
+
+A shared `.claude/settings.json` (committed to the repo) can
+set team-wide defaults. Use `.claude/settings.local.json` for
+personal overrides.
 
 ## Highlight Groups
 

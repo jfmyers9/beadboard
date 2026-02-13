@@ -285,11 +285,27 @@ function M.run(skill, bead_id, opts)
   end
 
   local model = get_config().claude_model
+  local config = get_config()
+  local perm_mode = config.claude_permission_mode
+  local extra_args = config.claude_extra_args or {}
+
   if mode == 'print' then
     local cmd = { cmd_name, '-p' }
     if model then
       cmd[#cmd + 1] = '--model'
       cmd[#cmd + 1] = model
+    end
+    cmd[#cmd + 1] = '--permission-mode'
+    cmd[#cmd + 1] = perm_mode or 'bypassPermissions'
+    for _, arg in ipairs(extra_args) do
+      cmd[#cmd + 1] = arg
+    end
+    local allowed_tools = config.claude_allowed_tools
+    if allowed_tools and #allowed_tools > 0 then
+      cmd[#cmd + 1] = '--allowedTools'
+      for _, tool in ipairs(allowed_tools) do
+        cmd[#cmd + 1] = tool
+      end
     end
     cmd[#cmd + 1] = '/' .. skill .. ' ' .. bead_id
     run_print(cmd, opts)
@@ -299,6 +315,20 @@ function M.run(skill, bead_id, opts)
     if model then
       cmd[#cmd + 1] = '--model'
       cmd[#cmd + 1] = model
+    end
+    if perm_mode then
+      cmd[#cmd + 1] = '--permission-mode'
+      cmd[#cmd + 1] = perm_mode
+    end
+    for _, arg in ipairs(extra_args) do
+      cmd[#cmd + 1] = arg
+    end
+    local allowed_tools = config.claude_allowed_tools
+    if allowed_tools and #allowed_tools > 0 then
+      cmd[#cmd + 1] = '--allowedTools'
+      for _, tool in ipairs(allowed_tools) do
+        cmd[#cmd + 1] = tool
+      end
     end
     cmd[#cmd + 1] = '/' .. skill .. ' ' .. bead_id
     return run_terminal(cmd, opts)
