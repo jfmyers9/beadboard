@@ -21,6 +21,8 @@ your editor.
   fallback to `vim.ui.select`
 - **Bulk operations** — visual-mode multi-issue status changes,
   close, delete, and defer
+- **Claude Code integration** — dispatch Claude skills from any
+  bead view with per-bead session tracking and auto-refresh
 
 ## Requirements
 
@@ -28,6 +30,8 @@ your editor.
 - [`bd`](https://github.com/anthropics/beads) CLI on `$PATH`
 - (Optional) [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
   for fuzzy issue picking
+- (Optional) [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+  CLI for skill dispatch
 
 ## Installation
 
@@ -80,6 +84,7 @@ require('beadboard').setup({
 | `bd_cmd` | string | `'bd'` | Path to the `bd` CLI binary |
 | `default_limit` | number | `50` | Maximum issues fetched per list query |
 | `default_sort` | string | `'priority'` | Default sort field for list view |
+| `claude_cmd` | string | `'claude'` | Path to the Claude Code CLI binary |
 
 ## Commands
 
@@ -96,6 +101,9 @@ require('beadboard').setup({
 | `:BdEpicStatus` | — | Epic progress view |
 | `:BdGraph [id]` | optional | Dependency graph (one issue or all) |
 | `:BdActivity` | — | Activity feed |
+| `:BdClaude <skill> <id>` | required | Run a Claude skill on a bead |
+| `:BdQuickExplore <topic>` | required | Create bead and launch explore |
+| `:BdQuickFix [feedback]` | optional | Create issues from feedback |
 
 ## Keybindings
 
@@ -123,6 +131,7 @@ require('beadboard').setup({
 | `gS` | Reverse sort order |
 | `/` | Text search |
 | `gq` | Query expression |
+| `gC` | Pick and run Claude skill on issue |
 | `?` | Show help |
 
 ### List View (Visual Mode — Bulk Operations)
@@ -191,6 +200,8 @@ or empty to clear.
 | `gx` | Mark as duplicate |
 | `gX` | Supersede with another issue |
 | `gW` | Promote wisp to permanent issue |
+| `gC` | Pick and run Claude skill on issue |
+| `gT` | Jump to active Claude session |
 
 ### Activity Feed
 
@@ -277,6 +288,24 @@ mark duplicate, supersede) use a Telescope fuzzy finder.
 
 Without Telescope, the plugin falls back to `vim.ui.input` for
 search and `vim.ui.select` for picking from results.
+
+## Claude Code Integration
+
+Press `gC` from any list or detail view to pick a Claude skill
+and launch an interactive session in a terminal split. Skills are
+discovered dynamically from `SKILL.md` frontmatter in your Claude
+configuration.
+
+Each bead tracks its active Claude session — pressing `gC` again
+focuses the existing terminal instead of spawning a duplicate.
+Views auto-refresh when a session exits.
+
+Quick-action commands for common workflows:
+
+- `:BdQuickExplore <topic>` — creates a new bead and immediately
+  launches the `explore` skill
+- `:BdQuickFix [feedback]` — runs the `fix` skill to turn
+  feedback into issues (prompts for input if no argument given)
 
 ## Highlight Groups
 
