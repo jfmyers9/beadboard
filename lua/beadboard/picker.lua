@@ -95,14 +95,90 @@ function M._telescope_pick(prompt_text, callback)
   end)
 end
 
---- Pick an issue. Uses telescope if available, otherwise falls back to
---- text input + vim.ui.select.
+--- Snacks picker: fuzzy find over all open issues.
+function M._snacks_pick(prompt_text, callback)
+  cli.run({ 'list', '--limit', '100' }, function(err, data)
+    if err or not data then
+      M._basic_pick(prompt_text, callback)
+      return
+    end
+
+    local items = {}
+    for _, bead in ipairs(data) do
+      items[#items + 1] = {
+        text = bead.id .. ' ' .. (bead.title or ''),
+        id = bead.id,
+        display = bead.id .. ' — ' .. (bead.title or ''),
+      }
+    end
+
+    local completed = false
+    Snacks.picker.pick({
+      source = 'beadboard',
+      title = prompt_text,
+      items = items,
+      format = function(item)
+        return { { item.display } }
+      end,
+      actions = {
+        confirm = function(picker, item)
+          if completed then
+            return
+          end
+          completed = true
+          picker:close()
+          vim.schedule(function()
+            if item then
+              callback(item.id)
+            else
+              callback(nil)
+            end
+          end)
+        end,
+      },
+      on_close = function()
+        if completed then
+          return
+        end
+        completed = true
+        vim.schedule(function()
+          callback(nil)
+        end)
+      end,
+    })
+  end)
+end
+
+--- Check if Snacks.picker is available and callable.
+local function _has_snacks()
+  local ok, snacks = pcall(require, 'snacks')
+  return ok and snacks.picker and type(snacks.picker.pick) == 'function'
+end
+
+--- Check if telescope is available.
+local function _has_telescope()
+  return pcall(require, 'telescope')
+end
+
+--- Pick an issue.
+--- Respects `require('beadboard').config.picker`:
+---   'snacks'    — force Snacks picker
+---   'telescope' — force Telescope picker
+---   'basic'     — force basic (vim.ui) picker
+---   'auto'      — snacks > telescope > basic
 function M.pick_issue(prompt_text, callback)
-  local has_telescope = pcall(require, 'telescope')
-  if has_telescope then
+  local pref = require('beadboard').config.picker or 'auto'
+
+  if pref == 'snacks' or (pref == 'auto' and _has_snacks()) then
+    M._snacks_pick(prompt_text, callback)
+    return
+  end
+
+  if pref == 'telescope' or (pref == 'auto' and _has_telescope()) then
     M._telescope_pick(prompt_text, callback)
     return
   end
+
   M._basic_pick(prompt_text, callback)
 end
 
