@@ -188,6 +188,35 @@ function M.pick_and_run(bead, opts)
     end,
   }, function(choice)
     if not choice then return end
+
+    -- Continuation: prompt to edit notes before dispatching
+    local is_continuation = (choice.name == 'explore' and (bead.title or ''):match('^Explore:'))
+      or (choice.name == 'review' and (bead.title or ''):match('^Review:'))
+    if is_continuation then
+      vim.ui.select({ 'Yes', 'No', 'Cancel' }, {
+        prompt = 'Edit notes to guide continuation?',
+      }, function(answer)
+        if not answer or answer == 'Cancel' then return end
+        if answer == 'No' then
+          M.run(choice.name, bead.id, opts)
+          return
+        end
+        -- Fetch current notes, open editor, dispatch after save
+        local bead_cli = require('beadboard.cli')
+        bead_cli.run({ 'show', bead.id }, function(err, data)
+          if err or not data or #data == 0 then
+            vim.notify('beadboard: failed to load bead', vim.log.levels.ERROR)
+            return
+          end
+          local notes = (data[1].notes or '')
+          require('beadboard.edit').open(bead.id, 'notes', notes, function()
+            M.run(choice.name, bead.id, opts)
+          end)
+        end)
+      end)
+      return
+    end
+
     M.run(choice.name, bead.id, opts)
   end)
 end
