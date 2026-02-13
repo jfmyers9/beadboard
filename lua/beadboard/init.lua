@@ -4,6 +4,9 @@ M.config = {
   bd_cmd = 'bd',
   default_limit = 50,
   default_sort = 'priority',
+  claude_cmd = 'claude',
+  claude_default_mode = 'terminal',
+  claude_model = nil,
 }
 
 function M.setup(opts)

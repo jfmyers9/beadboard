@@ -65,7 +65,10 @@ local function render(buf, beads)
   apply_highlights(buf, beads, col_widths)
 end
 
+local last_refresh_time = {}
+
 local function refresh(buf)
+  last_refresh_time[buf] = vim.uv.now()
   local args = filter.build_args(buf)
 
   cli.run(args, function(err, data)
@@ -436,6 +439,13 @@ local function setup_keymaps(buf)
     end)
   end, opts)
 
+  -- Claude skill picker
+  vim.keymap.set('n', 'gC', function()
+    local bead = get_bead_under_cursor(buf)
+    if not bead then return end
+    require('beadboard.claude').pick_and_run(bead)
+  end, opts)
+
   -- Help
   vim.keymap.set('n', '?', function()
     require('beadboard.help').open()
@@ -456,6 +466,7 @@ local function create_list_buf()
     buffer = buf,
     callback = function()
       buf_beads[buf] = nil
+      last_refresh_time[buf] = nil
       filter.cleanup(buf)
     end,
   })
@@ -489,6 +500,16 @@ function M.open_with_mode(mode, value)
     f.stale_days = value
   end
   refresh(buf)
+end
+
+function M.refresh_buf(buf)
+  refresh(buf)
+end
+
+function M.should_refresh(buf)
+  local last = last_refresh_time[buf]
+  if not last then return true end
+  return (vim.uv.now() - last) > 5000
 end
 
 return M

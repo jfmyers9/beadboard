@@ -43,3 +43,44 @@ end, { nargs = '?', desc = 'Show dependency graph' })
 vim.api.nvim_create_user_command('BdActivity', function()
   require('beadboard.activity').open()
 end, { desc = 'Activity feed' })
+
+vim.api.nvim_create_user_command('BdClaude', function(cmd)
+  local args = vim.split(cmd.args, '%s+', { trimempty = true })
+  if #args < 2 then
+    vim.notify('Usage: :BdClaude <skill> <bead-id>', vim.log.levels.ERROR)
+    return
+  end
+  require('beadboard.claude').run(args[1], args[2])
+end, { nargs = '+', desc = 'Run Claude skill on a bead' })
+
+vim.api.nvim_create_user_command('BdQuickExplore', function(cmd)
+  if cmd.args == '' then
+    vim.notify('Usage: :BdQuickExplore <topic>', vim.log.levels.ERROR)
+    return
+  end
+  local cli = require('beadboard.cli')
+  cli.run_raw({ 'q', 'Explore: ' .. cmd.args, '--type', 'task' }, function(err, output)
+    if err then
+      vim.notify('beadboard: ' .. err, vim.log.levels.ERROR)
+      return
+    end
+    local bead_id = output:gsub('%s+$', '')
+    if bead_id == '' then
+      vim.notify('beadboard: failed to create bead', vim.log.levels.ERROR)
+      return
+    end
+    require('beadboard.claude').run('explore', bead_id)
+  end)
+end, { nargs = '+', desc = 'Create bead and explore topic' })
+
+vim.api.nvim_create_user_command('BdQuickFix', function(cmd)
+  local feedback = cmd.args
+  if feedback == '' then
+    vim.ui.input({ prompt = 'Feedback: ' }, function(text)
+      if not text or text == '' then return end
+      require('beadboard.claude').run('fix', text)
+    end)
+    return
+  end
+  require('beadboard.claude').run('fix', feedback)
+end, { nargs = '?', desc = 'Create issues from feedback' })

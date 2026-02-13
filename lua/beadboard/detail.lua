@@ -623,10 +623,45 @@ local function setup_keymaps(buf)
     end)
   end, opts)
 
+  -- Claude skill picker
+  vim.keymap.set('n', 'gC', function()
+    local s = state()
+    if not s or not s.bead then return end
+    require('beadboard.claude').pick_and_run(s.bead)
+  end, opts)
+
+  -- Jump to active Claude session
+  vim.keymap.set('n', 'gT', function()
+    local s = state()
+    if not s then return end
+    require('beadboard.claude').focus(s.bead_id)
+  end, opts)
+
   -- Help
   vim.keymap.set('n', '?', function()
     require('beadboard.help').open()
   end, opts)
+end
+
+function M.refresh(buf, bead_id)
+  local s = buf_state[buf]
+  if s then
+    refresh_detail(buf, s.bead_id)
+  elseif bead_id then
+    refresh_detail(buf, bead_id)
+  end
+end
+
+function M.get_state(buf)
+  return buf_state[buf]
+end
+
+function M.should_refresh(buf)
+  local state = buf_state[buf]
+  if not state or not state.bead or not state.bead_id then return false end
+  local data, err = cli.run_sync({ 'show', state.bead_id })
+  if err or not data or #data == 0 then return false end
+  return data[1].updated_at ~= state.bead.updated_at
 end
 
 function M.open(bead_id)
