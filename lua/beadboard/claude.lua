@@ -128,7 +128,7 @@ local function discover_skills()
         elseif k == 'user-invocable' then invocable = v:match('true')
         end
       end
-      if name and invocable then
+      if name then
         skills[#skills + 1] = { name = name, desc = desc or '' }
       end
     end
