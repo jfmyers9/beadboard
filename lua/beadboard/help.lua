@@ -3,10 +3,7 @@ local M = {}
 local ns = vim.api.nvim_create_namespace("beadboard_help")
 local filetype = "beadboard_help"
 
-local function _has_snacks_win()
-	local ok, snacks = pcall(require, "snacks")
-	return ok and snacks.win and type(snacks.win) == "table"
-end
+local util = require("beadboard.util")
 
 -- Curated keymap sections. Each section: { title, { {lhs, desc}, ... } }
 -- Kept static because beadboard keymaps lack desc fields.
@@ -15,9 +12,12 @@ local sections = {
 		"List",
 		{
 			{ "<CR>", "Open bead detail" },
+			{ "K", "Preview bead" },
 			{ "R", "Refresh" },
 			{ "q", "Close buffer" },
 			{ "t", "Toggle tree mode" },
+			{ "<", "Collapse tree node" },
+			{ ">", "Expand tree node" },
 			{ "s", "Cycle status forward" },
 			{ "S", "Pick status" },
 			{ "p", "Priority up" },
@@ -350,7 +350,7 @@ function M.toggle()
 		return
 	end
 	local source_buf = vim.api.nvim_get_current_buf()
-	if _has_snacks_win() then
+	if util.has_snacks_win() then
 		open_snacks(source_buf)
 	else
 		open_fallback(source_buf)

@@ -86,14 +86,26 @@ local function tree_prefix(depth, is_last, ancestors)
 	return table.concat(parts)
 end
 
+local function fold_indicator(entry)
+	if not entry.has_children then
+		return "  "
+	end
+	return entry.collapsed and "▸ " or "▾ "
+end
+
 function M.format_tree_line(entry, col_widths)
 	local prefix = tree_prefix(entry.depth, entry.is_last, entry.ancestors)
-	return prefix .. M.format_bead_line(entry.bead, col_widths)
+	return prefix .. fold_indicator(entry) .. M.format_bead_line(entry.bead, col_widths)
 end
 
 function M.tree_column_offsets(entry, col_widths)
-	local prefix_len = #tree_prefix(entry.depth, entry.is_last, entry.ancestors)
+	local prefix_len = #tree_prefix(entry.depth, entry.is_last, entry.ancestors) + #fold_indicator(entry)
 	return compute_offsets(prefix_len, col_widths, entry.bead.title)
+end
+
+function M.has_snacks_win()
+	local ok, snacks = pcall(require, "snacks")
+	return ok and snacks.win and type(snacks.win) == "table"
 end
 
 return M

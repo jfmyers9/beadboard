@@ -10,6 +10,7 @@ local ns = vim.api.nvim_create_namespace("beadboard_list")
 
 -- Store bead data per-buffer for keymap access.
 local buf_beads = {}
+local buf_collapsed = {}
 
 local function get_config()
 	return require("beadboard").config
@@ -48,7 +49,8 @@ local function render(buf, beads)
 	local is_tree = f.tree
 
 	if is_tree then
-		local entries = tree.build(beads)
+		local collapsed = buf_collapsed[buf] or {}
+		local entries = tree.build(beads, collapsed)
 		local col_widths = util.compute_col_widths_tree(entries)
 		local lines = { build_header(buf, #entries) }
 		local ordered_beads = {}
@@ -62,7 +64,7 @@ local function render(buf, beads)
 		vim.bo[buf].modifiable = false
 		vim.bo[buf].modified = false
 
-		buf_beads[buf] = { beads = ordered_beads, col_widths = col_widths }
+		buf_beads[buf] = { beads = ordered_beads, col_widths = col_widths, tree_entries = entries }
 		apply_highlights(buf, entries, col_widths, util.tree_column_offsets)
 	else
 		local col_widths = util.compute_col_widths(beads)
@@ -184,6 +186,13 @@ local function setup_keymaps(buf)
 			require("beadboard.detail").open(bead.id, buf, bead)
 		end
 	end, vim.tbl_extend("force", opts, { desc = "Open bead detail" }))
+
+	vim.keymap.set("n", "K", function()
+		local bead = get_bead_under_cursor(buf)
+		if bead then
+			require("beadboard.preview").toggle(bead, buf)
+		end
+	end, vim.tbl_extend("force", opts, { desc = "Preview bead" }))
 
 	vim.keymap.set("n", "q", function()
 		vim.api.nvim_buf_delete(buf, { force = true })
@@ -595,6 +604,64 @@ local function setup_keymaps(buf)
 		refresh(buf)
 	end, vim.tbl_extend("force", opts, { desc = "Toggle tree mode" }))
 
+	-- Collapse tree node
+	vim.keymap.set("n", "<", function()
+		if not filter.get(buf).tree then
+			return
+		end
+		local bd = buf_beads[buf]
+		if not bd or not bd.tree_entries then
+			return
+		end
+		local row = vim.api.nvim_win_get_cursor(0)[1]
+		if row <= 1 then
+			return
+		end
+		local entry = bd.tree_entries[row - 1]
+		if not entry then
+			return
+		end
+		if not buf_collapsed[buf] then
+			buf_collapsed[buf] = {}
+		end
+		local changed = false
+		if entry.has_children then
+			if not entry.collapsed then
+				buf_collapsed[buf][entry.bead.id] = true
+				changed = true
+			end
+		elseif entry.depth > 0 then
+			for j = row - 2, 1, -1 do
+				local parent = bd.tree_entries[j]
+				if parent and parent.depth == entry.depth - 1 then
+					if not parent.collapsed then
+						buf_collapsed[buf][parent.bead.id] = true
+						changed = true
+					end
+					break
+				end
+			end
+		end
+		if changed then
+			refresh(buf)
+		end
+	end, vim.tbl_extend("force", opts, { desc = "Collapse tree node" }))
+
+	-- Expand tree node
+	vim.keymap.set("n", ">", function()
+		if not filter.get(buf).tree then
+			return
+		end
+		local bead = get_bead_under_cursor(buf)
+		if not bead then
+			return
+		end
+		if buf_collapsed[buf] and buf_collapsed[buf][bead.id] then
+			buf_collapsed[buf][bead.id] = nil
+			refresh(buf)
+		end
+	end, vim.tbl_extend("force", opts, { desc = "Expand tree node" }))
+
 	-- Help
 	vim.keymap.set("n", "?", function()
 		require("beadboard.help").toggle()
@@ -615,6 +682,7 @@ local function create_list_buf()
 		buffer = buf,
 		callback = function()
 			buf_beads[buf] = nil
+			buf_collapsed[buf] = nil
 			last_refresh_time[buf] = nil
 			filter.cleanup(buf)
 		end,

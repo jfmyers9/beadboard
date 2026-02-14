@@ -28,10 +28,11 @@ local function find_parent_id(bead)
 	return nil
 end
 
-function M.build(beads)
+function M.build(beads, collapsed)
 	if not beads or #beads == 0 then
 		return {}
 	end
+	collapsed = collapsed or {}
 
 	local by_id = {}
 	for _, bead in ipairs(beads) do
@@ -69,14 +70,18 @@ function M.build(beads)
 		for i, bead in ipairs(list) do
 			if not visited[bead.id] then
 				visited[bead.id] = true
+				local kids = children[bead.id]
+				local has_children = kids ~= nil
+				local is_collapsed = has_children and collapsed[bead.id]
 				result[#result + 1] = {
 					bead = bead,
 					depth = depth,
 					is_last = (i == #list),
 					ancestors = ancestors,
+					has_children = has_children,
+					collapsed = is_collapsed or false,
 				}
-				local kids = children[bead.id]
-				if kids then
+				if kids and not is_collapsed then
 					local next_ancestors = {}
 					for j = 1, #ancestors do
 						next_ancestors[j] = ancestors[j]
