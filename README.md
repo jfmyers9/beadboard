@@ -17,8 +17,8 @@ your editor.
 - **Project dashboard** — summary charts by status, priority,
   type, assignee, and label
 - **Statusline** — drop-in function for lualine or any statusline
-- **Telescope integration** — fuzzy issue picker with graceful
-  fallback to `vim.ui.select`
+- **Picker integration** — fuzzy issue picker via snacks.nvim
+  or telescope.nvim, with graceful fallback to `vim.ui.select`
 - **Bulk operations** — visual-mode multi-issue status changes,
   close, delete, and defer
 - **Claude Code integration** — dispatch Claude skills from any
@@ -30,6 +30,8 @@ your editor.
 - [`bd`](https://github.com/anthropics/beads) CLI on `$PATH`
 - (Optional) [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
   for fuzzy issue picking
+- (Optional) [snacks.nvim](https://github.com/folke/snacks.nvim)
+  for modern fuzzy issue picking (preferred over telescope)
 - (Optional) [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
   CLI for skill dispatch
 
@@ -89,6 +91,7 @@ require('beadboard').setup({
 | `bd_cmd` | string | `'bd'` | Path to the `bd` CLI binary |
 | `default_limit` | number | `50` | Maximum issues fetched per list query |
 | `default_sort` | string | `'priority'` | Default sort field for list view |
+| `picker` | string | `'auto'` | Issue picker backend: `'auto'`, `'snacks'`, `'telescope'`, or `'basic'` |
 | `claude_cmd` | string | `'claude'` | Path to the Claude Code CLI binary |
 | `claude_permission_mode` | string | `nil` | Claude Code `--permission-mode` flag (`"acceptEdits"`, `"bypassPermissions"`, etc.) |
 | `claude_extra_args` | list | `{}` | Extra CLI args passed to Claude Code (escape hatch for future flags) |
@@ -288,14 +291,23 @@ require('lualine').setup({
 })
 ```
 
-## Telescope Integration
+## Picker Integration
 
-When [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
-is installed, issue pickers (set parent, add dependency, relate,
-mark duplicate, supersede) use a Telescope fuzzy finder.
+Issue pickers (set parent, add dependency, relate, mark
+duplicate, supersede) use the best available fuzzy finder.
 
-Without Telescope, the plugin falls back to `vim.ui.input` for
-search and `vim.ui.select` for picking from results.
+The `picker` config key controls which backend is used:
+
+| Value | Behavior |
+|---|---|
+| `'auto'` (default) | snacks.nvim > telescope.nvim > `vim.ui.select` |
+| `'snacks'` | Force snacks.nvim (errors if not installed) |
+| `'telescope'` | Force telescope.nvim (errors if not installed) |
+| `'basic'` | Always use `vim.ui.select` |
+
+With [snacks.nvim](https://github.com/folke/snacks.nvim) and
+its `ui_select = true` option enabled, even the `'basic'`
+fallback renders as a modern floating picker.
 
 ## Claude Code Integration
 
